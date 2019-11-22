@@ -106,8 +106,8 @@ spec:
           - name: rotate
             image: nuxeo/aws-iam-credential-rotate
           restartPolicy: Never
-    serviceAccount: aws-credentials-updater
-    serviceAccountName: aws-credentials-updater
+          serviceAccount: aws-credentials-updater
+          serviceAccountName: aws-credentials-updater
   successfulJobsHistoryLimit: 50
   failedJobsHistoryLimit: 50
 ```
