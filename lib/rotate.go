@@ -42,7 +42,7 @@ func RotateKeys(client *k8s.Client, namespace string) {
 	l.Eq("aws-rotate-key", "true")
 
 	var secrets corev1.SecretList
-	if err := client.List(ctx, "", &secrets, l.Selector()); err != nil {
+	if err := client.List(ctx, namespace, &secrets, l.Selector()); err != nil {
 		log.Fatal(err)
 	}
 
@@ -101,6 +101,7 @@ func RotateKeys(client *k8s.Client, namespace string) {
 func LoadClient(kubeconfigPath string) (*k8s.Client, error) {
 
 		if(kubeconfigPath == "") {
+			log.Info("Using in-cluster configuration")
 			return k8s.NewInClusterClient()
 		} else {
 	    data, err := ioutil.ReadFile(kubeconfigPath)

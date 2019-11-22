@@ -46,19 +46,18 @@ var rotateCmd = &cobra.Command{
   Long: `Rotates the IAM key`,
   Run: func(cmd *cobra.Command, args []string) {
 
+
+    kubeConfigPath := ""
     usr, err := user.Current()
-    if err != nil {
-        log.Fatal( err )
-    }
+    if err == nil {
+        //Try to get kubeConfig from currentUser
+        kubeConfigPath = usr.HomeDir + "/.kube/config"
+        fmt.Println("looking for " + kubeConfigPath)
 
+        if _, err := os.Stat(kubeConfigPath); os.IsNotExist(err) {
 
-    kubeConfigPath := usr.HomeDir + "/.kube/config"
-    fmt.Println("looking for " + kubeConfigPath)
-    if _, err := os.Stat(kubeConfigPath); os.IsNotExist(err) {
-      kubeConfigPath = ""
-      log.Info("Using in-cluster configuration")
-    } else {
-      log.Info("Reading k8s configuration from: " + kubeConfigPath)
+          kubeConfigPath = ""
+        }
     }
 
 
