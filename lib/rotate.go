@@ -16,28 +16,14 @@ limitations under the License.
 package lib
 
 import (
-  "fmt"
   "time"
   "context"
-  "io/ioutil"
-  "github.com/ghodss/yaml"
-  "github.com/sirupsen/logrus"
   "github.com/ericchiang/k8s"
   corev1 "github.com/ericchiang/k8s/apis/core/v1"
 
   "github.com/aws/aws-sdk-go/aws"
-  "github.com/aws/aws-sdk-go/aws/credentials"
-  "github.com/aws/aws-sdk-go/aws/session"
   "github.com/aws/aws-sdk-go/service/iam"
 )
-
-
-var log = logrus.New()
-
-const accessKeyIdPropName = "access_key_id"
-const secretAccessKeyPropName = "secret_access_key"
-const rotateKeyLabel = "aws-rotate-key"
-
 
 
 func RotateKeys(client *k8s.Client, namespace string) {
@@ -100,30 +86,6 @@ func RotateKeys(client *k8s.Client, namespace string) {
 
 }
 
-
-// loadClient parses a kubeconfig from a file and returns a Kubernetes
-// client. It does not support extensions or client auth providers.
-func LoadClient(kubeconfigPath string) (*k8s.Client, error) {
-
-    if(kubeconfigPath == "") {
-      log.Info("Using in-cluster configuration")
-      return k8s.NewInClusterClient()
-    } else {
-      data, err := ioutil.ReadFile(kubeconfigPath)
-      if err != nil {
-          return nil, fmt.Errorf("read kubeconfig: %v", err)
-      }
-
-      // Unmarshal YAML into a Kubernetes config object.
-      var config k8s.Config
-      if err := yaml.Unmarshal(data, &config); err != nil {
-          return nil, fmt.Errorf("unmarshal kubeconfig: %v", err)
-      }
-      return k8s.NewClient(&config)
-    }
-}
-
-
 /**
  * Returns the list of secret that we want to rotate.
  */
@@ -137,34 +99,6 @@ func getSecretsToRotate(client *k8s.Client, namespace string) (error, *corev1.Se
     return err, nil
   }
   return nil, &secrets
-}
-
-
-/**
- * Creates an AWS Session from a k8s Secret
- */
-func createSessionFromSecret(secret *corev1.Secret) *session.Session {
-
-  accessKeyId := string(secret.Data[accessKeyIdPropName])
-  secretAccessKey := string(secret.Data[secretAccessKeyPropName])
-
-  log.Infof("Creating session from secret %q containing accessKeyId=%s", *secret.Metadata.Name, accessKeyId)
-
-  return createSession(accessKeyId, secretAccessKey, *secret.Metadata.Name + "-" +"orig")
-
-}
-
-/**
- * Creates an AWS Session using
- */
-func createSession(accessKeyId string, secretAccessKey string, profileName string) *session.Session {
-  return session.Must(session.NewSessionWithOptions(session.Options{
-    Config: aws.Config{
-      Region: aws.String("us-east-1"),
-      Credentials: credentials.NewStaticCredentials(accessKeyId, secretAccessKey, ""),
-    },
-    Profile: profileName,
-  }))
 }
 
 /**

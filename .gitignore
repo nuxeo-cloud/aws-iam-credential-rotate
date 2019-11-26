@@ -5,7 +5,7 @@
 *.dll
 *.so
 *.dylib
-
+aws-iam-credential-rotate
 # Test binary, built with `go test -c`
 *.test
 

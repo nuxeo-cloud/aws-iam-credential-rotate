@@ -46,22 +46,7 @@ var rotateCmd = &cobra.Command{
   Long: `Rotates the IAM key`,
   Run: func(cmd *cobra.Command, args []string) {
 
-
-    kubeConfigPath := ""
-    usr, err := user.Current()
-    if err == nil {
-        //Try to get kubeConfig from currentUser
-        kubeConfigPath = usr.HomeDir + "/.kube/config"
-        fmt.Println("looking for " + kubeConfigPath)
-
-        if _, err := os.Stat(kubeConfigPath); os.IsNotExist(err) {
-
-          kubeConfigPath = ""
-        }
-    }
-
-
-    client, err := lib.LoadClient(kubeConfigPath)
+    client, err := lib.LoadClient(getKubeConfigPath())
     if err != nil {
         log.Fatal( err )
     }
@@ -78,6 +63,46 @@ var rotateCmd = &cobra.Command{
   },
 }
 
+
+var ecrUpdate = &cobra.Command{
+  Use:   "ecr-update",
+  Short: "Update ECR Secret with a new ecr login.",
+  Long: `Update ECR Secret with a new ecr login`,
+  Run: func(cmd *cobra.Command, args []string) {
+
+    client, err := lib.LoadClient(getKubeConfigPath())
+    if err != nil {
+        log.Fatal( err )
+    }
+
+    namespace, exists := os.LookupEnv("NAMESPACE")
+    if(!exists) {
+      namespace = client.Namespace
+    }
+
+
+
+    lib.UpdateECR(client, namespace)
+
+  },
+}
+
+func getKubeConfigPath() string {
+  kubeConfigPath := ""
+  usr, err := user.Current()
+  if err == nil {
+      //Try to get kubeConfig from currentUser
+      kubeConfigPath = usr.HomeDir + "/.kube/config"
+
+      if _, err := os.Stat(kubeConfigPath); os.IsNotExist(err) {
+
+        kubeConfigPath = ""
+      }
+  }
+  return kubeConfigPath
+
+}
+
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
@@ -90,6 +115,7 @@ func Execute() {
 func init() {
   cobra.OnInitialize(initConfig)
   rootCmd.AddCommand(rotateCmd)
+  rootCmd.AddCommand(ecrUpdate)
 }
 
 
