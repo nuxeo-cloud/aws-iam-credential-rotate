@@ -56,9 +56,12 @@ func UpdateECR(client *k8s.Client, namespace string) {
 
   for _, secret := range secrets.Items {
 
-    accessKeySecretName := secret.Metadata.Labels["aws-ecr-updater-secret"]
-    //registryId := secret.Metadata.Labels["aws-ecr-updater-registry-id"]
-    //region := secret.Metadata.Labels["aws-ecr-updater-region"]
+    log.Infof("Found ECR secret: %s", *secret.Metadata.Name)
+
+    accessKeySecretName := secret.Metadata.Annotations["aws-ecr-updater/secret"]
+    region := secret.Metadata.Annotations["aws-ecr-updater/region"]
+
+    log.Infof("For region: %s", region)
 
     var accessKeySecret corev1.Secret
 	  if err := client.Get(context.TODO(), namespace, accessKeySecretName, &accessKeySecret); err != nil {
@@ -70,7 +73,7 @@ func UpdateECR(client *k8s.Client, namespace string) {
 
 
     // Get an authorization Token from ECR
-    svc := ecr.New(mySession, aws.NewConfig().WithRegion("eu-west-1"))
+    svc := ecr.New(mySession, aws.NewConfig().WithRegion(region))
 
     input := &ecr.GetAuthorizationTokenInput{}
 
@@ -145,8 +148,6 @@ func buildDockerJsonConfig(authorizationData *ecr.AuthorizationData) ([]byte, er
 		Email: "openshift@nuxeocloud.com",
 		Auth: encodeDockerConfigFieldAuth(user, password),
 	}
-
-	log.Infof("docker login %s -u AWS -p %s",endpoint , password)
 
 	config := &DockerConfigJson {
 		Auths: dockerConfig,

@@ -7,8 +7,11 @@ This is a really simple tool that takes a secret containing IAM credentials, rot
 How to use
 ==========
 
-Rotate key policy
------------------
+
+Rotate IAM Key
+--------------
+
+### Rotate key policy
 
 The following policy has to be created and attached to the user so that he can change his own keys:
 
@@ -31,13 +34,13 @@ The following policy has to be created and attached to the user so that he can c
 }
 ```
 
-IAM user
---------
+### IAM user
+
 
 Create a user in AWS and attach the previous policy to it. Generate an access key for the user.
 
-Secret in Kubernetes
---------------------
+### Secret in Kubernetes
+
 
 The following secret will hold the initial credentials of the user.
 
@@ -53,8 +56,7 @@ stringData:
   secret_access_key: xxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-Cron Job
---------
+### Cron Job
 
 Finally we need a CRON job that runs with privileges to list secrets:
 
@@ -110,6 +112,85 @@ spec:
           serviceAccountName: aws-credentials-updater
   successfulJobsHistoryLimit: 50
   failedJobsHistoryLimit: 50
+```
+
+Rotate ECR Credentials
+----------------------
+
+### Create a secret
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aws-ecr-credentials-us-west-1
+  labels:
+    aws-ecr-updater: "true"
+  annotations:
+    aws-ecr-updater/secret: "aws-iam-user-credentials"
+    aws-ecr-updater/region: "eu-west-1"
+type: kubernetes.io/dockerconfigjson
+stringData:
+  .dockerconfigjson: "{}"
+```
+
+### Attach a policy to the IAM user
+
+Create the following policy and attach it to the IAM user:
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "ecr:GetAuthorizationToken",
+                "ecr:BatchCheckLayerAvailability",
+                "ecr:GetDownloadUrlForLayer",
+                "ecr:GetRepositoryPolicy",
+                "ecr:DescribeRepositories",
+                "ecr:ListImages",
+                "ecr:DescribeImages",
+                "ecr:BatchGetImage",
+                "ecr:InitiateLayerUpload",
+                "ecr:UploadLayerPart",
+                "ecr:CompleteLayerUpload",
+                "ecr:PutImage"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
+
+### Create the CRON Job
+
+```yaml
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: rotate-ecr
+spec:
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            parent: rotate-ecr
+        spec:
+          containers:
+          - command:
+            - /aws-iam-credential-rotate
+            - ecr-update
+            image: nuxeo/aws-iam-credential-rotate
+            name: rotate
+          serviceAccount: aws-credentials-updater
+          serviceAccountName: aws-credentials-updater
+  schedule: 0 */2 * * *
+  successfulJobsHistoryLimit: 10
+  failedJobsHistoryLimit: 10
 ```
 
 # Licensing

@@ -1,0 +1,104 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CICD ECR Acess template
+Parameters:
+  BillingCategory:
+    Type: String
+    Default: internal
+    AllowedValues:
+      - internal
+      - customers
+      - presales
+  BillingSubCategory:
+    Type: String
+    Default: cicd
+  Project:
+    Type: String
+    Default: cicd
+  Contact:
+    Type: String
+    Default: dmetzler@nuxeo.com
+  Environment:
+    Default: dev
+    AllowedValues:
+      - dev
+      - uat
+      - preprod
+      - prod
+    Type: String
+
+Resources:
+  RotateKeyPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Description: Allow to rotate own IAM keys
+    Properties:
+      ManagedPolicyName: !Sub "cicd-${Environment}-rotate-key-policy"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: Allow
+          Action:
+            - iam:UpdateAccessKey
+            - iam:CreateAccessKey
+            - iam:ListAccessKeys
+            - iam:DeleteAccessKey
+          Resource: "arn:aws:iam::*:user/${aws:username}"
+
+  ECRPushPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Description: Allow to rotate push ECR images
+    Properties:
+      ManagedPolicyName: !Sub "cicd-${Environment}-ecr-push-policy"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: Allow
+          Action:
+            - "ecr:GetAuthorizationToken"
+            - "ecr:BatchCheckLayerAvailability"
+            - "ecr:GetDownloadUrlForLayer"
+            - "ecr:GetRepositoryPolicy"
+            - "ecr:DescribeRepositories"
+            - "ecr:ListImages"
+            - "ecr:DescribeImages"
+            - "ecr:BatchGetImage"
+            - "ecr:InitiateLayerUpload"
+            - "ecr:UploadLayerPart"
+            - "ecr:CompleteLayerUpload"
+            - "ecr:PutImage"
+          Resource: "*"
+
+  CICDUser:
+    Type: AWS::IAM::User
+    Properties:
+      Path: "/"
+      UserName: !Sub "cicd-${Environment}-openshift-user"
+      ManagedPolicyArns:
+      - !Ref ECRPushPolicy
+      - !Ref RotateKeyPolicy
+    Tags:
+      - Key: billing-category
+        Value: !Ref BillingCategory
+      - Key: billing-subcategory
+        Value: !Ref BillingSubCategory
+      - Key: project
+        Value: !Ref Project
+      - Key: contact
+        Value: !Ref Contact
+      - Key: environment
+        Value: !Ref Environment
+
+
+  CICDUserKeys:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      Serial: 1
+      UserName: !Ref CICDUser
+
+Outputs:
+  CICDUserAccessId:
+    Value: !Ref CICDUserKeys
+    Description: AWSAccessKeyId of CICD user
+  CICDUserSecretKey:
+    Value: !GetAtt [CICDUserKeys, SecretAccessKey]
+    Description: AWSSecretKey of CICD user
+
