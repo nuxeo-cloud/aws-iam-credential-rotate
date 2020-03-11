@@ -16,7 +16,9 @@ limitations under the License.
 package lib
 
 import (
+	"bytes"
 	"context"
+	"text/template"
 	"time"
 
 	"github.com/ericchiang/k8s"
@@ -26,6 +28,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam"
 )
 
+// Function to rotate keys
 func RotateKeys(client *k8s.Client, namespace string) {
 	err, secrets := getSecretsToRotate(client, namespace)
 	if err != nil {
@@ -133,15 +136,48 @@ func rollbackKeyCreation(iamSvc *iam.IAM, accessKey *iam.AccessKey) {
 	}
 }
 
+/*
+ * AWSCredentials struct to store id and secret
+ */
+type AWSCredentials struct {
+	Profile string
+	ID      string
+	Secret  string
+	Region  string
+}
+
 /**
  * Updates a k8s secret with the given AWS AccessKey
  */
 func updateSecret(client *k8s.Client, secret *corev1.Secret, accessKey *iam.AccessKey) error {
 
-	secret.StringData = make(map[string]string)
-	secret.StringData[accessKeyIdPropName] = aws.StringValue(accessKey.AccessKeyId)
-	secret.StringData[secretAccessKeyPropName] = aws.StringValue(accessKey.SecretAccessKey)
+	id := aws.StringValue(accessKey.AccessKeyId)
+	key := aws.StringValue(accessKey.SecretAccessKey)
 
+	// Defining template for credentials file
+	defaultCredentials := AWSCredentials{"default", id, key, "eu-west-1"}
+	openshiftCredentials := AWSCredentials{"openshift", id, key, "eu-west-1"}
+	credentialsFileTemplate, err := template.New("credentials").Parse(
+		"" +
+			"[{{ .Profile}}]\n" +
+			"aws_access_key_id={{ .ID}}\n" +
+			"aws_secret_access_key={{ .Secret}}\n" +
+			"region={{ .Region}}",
+	)
+	if err != nil {
+		return err
+	}
+
+	var defaultCredentialsData bytes.Buffer
+	var openshiftCredentialsData bytes.Buffer
+	credentialsFileTemplate.Execute(&defaultCredentialsData, defaultCredentials)
+	credentialsFileTemplate.Execute(&openshiftCredentialsData, openshiftCredentials)
+
+	secret.StringData = make(map[string]string)
+	secret.StringData[accessKeyIdPropName] = id
+	secret.StringData[secretAccessKeyPropName] = key
+	secret.StringData[configPropName] = defaultCredentialsData.String()
+	secret.StringData[credentialsPropName] = openshiftCredentialsData.String()
 	return client.Update(context.TODO(), secret)
 }
 
