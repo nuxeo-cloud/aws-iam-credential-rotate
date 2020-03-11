@@ -34,6 +34,8 @@ var log = logrus.New()
 
 const accessKeyIdPropName = "access_key_id"
 const secretAccessKeyPropName = "secret_access_key"
+const configPropName = "config"
+const credentialsPropName = "credentials"
 const rotateKeyLabel = "aws-rotate-key"
 
 
